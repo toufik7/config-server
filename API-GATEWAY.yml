@@ -1,0 +1,131 @@
+server:
+  port: 9191
+
+
+
+spring:
+  application:
+    name: API-GATEWAY
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:4200"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+      routes:
+        - id: JWT-AUTH-SERVICE
+          uri: lb://JWT-AUTH-SERVICE
+          predicates:
+            - Path=/service-auth/**
+          filters:
+            - RewritePath=/service-auth/(?<s>.*), /${s}
+            - name: CircuitBreaker
+              args:
+                name: fallback-ms-auth
+                fallbackuri: forward:/jwtAuthServiceFallBack
+
+        - id: DOSSIER-MEDICAL-SERVICE
+          uri: lb://DOSSIER-MEDICAL-SERVICE
+          predicates:
+            - Path=/service-DM/**
+          filters:
+            - RewritePath=/service-DM/(?<s>.*), /${s}
+            - name: CircuitBreaker
+              args:
+                name: fallback-ms-dm
+                fallbackuri: forward:/dmServiceFallBack
+
+        - id: EXAMEN-CLINIQUE-SERVICE
+          uri: lb://EXAMEN-CLINIQUE-SERVICE
+          predicates:
+            - Path=/service-EC/**
+          filters:
+            - RewritePath=/service-EC/(?<s>.*), /${s}
+            - name: CircuitBreaker
+              args:
+                name: fallback-ms-ec
+                fallbackuri: forward:/ecServiceFallBack
+
+        - id: BILAN-PARACLINIQUE-SERVICE
+          uri: lb://BILAN-PARACLINIQUE-SERVICE
+          predicates:
+            - Path=/service-BP/**
+          filters:
+            - RewritePath=/service-BP/(?<s>.*), /${s}
+            - name: CircuitBreaker
+              args:
+                name: fallback-ms-bp
+                fallbackuri: forward:/bpServiceFallBack
+
+        - id: IOT-SERVICE
+          uri: lb://IOT-SERVICE
+          predicates:
+            - Path=/service-IOT/**
+          filters:
+            - RewritePath=/service-IOT/(?<s>.*), /${s}
+            - name: CircuitBreaker
+              args:
+                name: fallback-ms-iot
+                fallbackuri: forward:/iotServiceFallBack
+  config:
+    import: optional:configserver:http://localhost:9000
+
+
+
+hystrix:
+  command:
+    fallbackcmd:
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 4000
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 2s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+        recordExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - java.io.IOException
+        ignoreExceptions:
+          - java.lang.IllegalStateException
+        shared:
+          slidingWindowSize: 100
+          permittedNumberOfCallsInHalfOpenState: 30
+          waitDurationInOpenState: 1s
+          failureRateThreshold: 50
+          eventConsumerBufferSize: 10
+          ignoreExceptions:
+            - java.lang.IllegalStateException
+timelimiter:
+  configs:
+   default:
+    timeoutDuration: 10s
+    cancelRunningFuture: false
+instances:
+  backendB:
+   timeoutDuration: 250ms
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    hostname: localhost
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: *
